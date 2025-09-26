@@ -4,95 +4,194 @@ using UnityEngine;
 
 public class PlayerController : MonoBehaviour
 {
-    public static PlayerController Current; // Singleton gibi davranýyor, baþka scriptler buradan PlayerController'a eriþiyor
+    public static PlayerController Current;
 
-    public float limitX; // Oyuncunun saða sola hareket ederken sýnýrlanacaðý X eksenindeki limit
-    public float runningSpeed; // Oyuncunun ileriye doðru koþma hýzý (Z ekseni)
-    public float xSpeed; // Oyuncunun sað-sol hareket etme hýzý
-    private float _currentRunningSpeed; // Anlýk koþma hýzý (baþlangýçta -runningSpeed oluyor)
+    public float limitX; 
+    public float runningSpeed; 
+    public float xSpeed; 
+    private float _currentRunningSpeed;
 
-    public GameObject ridingCylinderPrefab; // Altýna eklenen silindir prefab'ý
-    public List<RidingCylinder> ridingCylinders; // Oyuncunun altýnda bulunan silindirlerin listesi
+    public GameObject ridingCylinderPrefab;
+    public List<RidingCylinder> ridingCylinders;
 
+    private bool _spawningBridge;
+    public GameObject bridgePiecePrefab;
+    private BridgeSpawner _bridgeSpawner;
+    private float _creatingBridgeTimer;
+
+    private bool _finished;
+    private float _scoreTimer = 0;
+
+    public Animator animator;
+
+    private float _lastTouchedX;
     void Start()
     {
-        Current = this; // Current deðiþkenine bu script'i atýyoruz
-        _currentRunningSpeed = -runningSpeed; // Oyuncu sürekli ileri doðru hareket ediyor (Z ekseninde eksiye gidiyor)
+        Current = this;
     }
 
     void Update()
     {
-        float newX = 0; // Yeni X pozisyonu
-        float touchDeltaX = 0; // Ekrana dokunma ya da mouse hareketinden gelen X farký
-
-        // Dokunmatik cihazda parmaðý kaydýrma kontrolü
-        if (Input.touchCount > 0 && Input.GetTouch(0).phase == TouchPhase.Moved)
+        if(LevelController.Current == null ||  !LevelController.Current.gameActive)
         {
-            touchDeltaX = Input.GetTouch(0).deltaPosition.x / Screen.width;
+            return;
         }
-        // Mouse ile kontrol
+
+        float newX = 0;
+        float touchDeltaX = 0;
+        
+        if (Input.touchCount > 0)
+        {
+            if (Input.GetTouch(0).phase == TouchPhase.Began)
+            {
+                _lastTouchedX = Input.GetTouch(0).position.x;
+            }
+            else if(Input.GetTouch(0).phase == TouchPhase.Moved)
+            {
+                touchDeltaX = 5 * (_lastTouchedX- Input.GetTouch(0).position.x) / Screen.width;
+                _lastTouchedX = Input.GetTouch(0).position.x;
+            }
+        }
         else if (Input.GetMouseButton(0))
         {
             touchDeltaX = Input.GetAxis("Mouse X");
         }
-
-        // Yeni X pozisyonu hesaplanýyor
+        
         newX = transform.position.x + xSpeed * touchDeltaX * Time.deltaTime;
-        newX = Mathf.Clamp(newX, -limitX, limitX); // X pozisyonu limitlerin dýþýna çýkmasýn
-
-        // Yeni pozisyonu Z ekseninde ileri hareket ederek güncelliyoruz
+        newX = Mathf.Clamp(newX, -limitX, limitX);
+       
         Vector3 newPosition = new Vector3(newX, transform.position.y, transform.position.z + _currentRunningSpeed * Time.deltaTime);
         transform.position = newPosition;
-    }
 
-    private void OnTriggerEnter(Collider other)
-    {
-        // Eðer "AddCylinder" tag'li objeye çarparsa
-        if (other.tag == "AddCylinder")
+        if (_spawningBridge)
         {
-            IncrementCylinderVolume(0.1f); // Silindirin hacmini 0.1 arttýr
-            Destroy(other.gameObject); // Objeyi yok et
+            _creatingBridgeTimer -= Time.deltaTime;
+            if (_creatingBridgeTimer < 0)
+            {
+                _creatingBridgeTimer = 0.01f;
+                IncrementCylinderVolume(-0.01f);
+                GameObject createdBridgePiece = Instantiate(bridgePiecePrefab);
+
+                Vector3 direction = _bridgeSpawner.endReference.transform.position - _bridgeSpawner.startReference.transform.position;
+                float distance = direction.magnitude;
+                direction = direction.normalized;
+                createdBridgePiece.transform.forward = direction;
+                float characterDistance = transform.position.z - _bridgeSpawner.startReference.transform.position.z;
+                characterDistance = Mathf.Clamp(characterDistance, 0, distance);
+                Vector3 newPiecePosition = _bridgeSpawner.startReference.transform.position + direction * characterDistance;
+                newPiecePosition.x = transform.position.x;
+                createdBridgePiece.transform.position = newPiecePosition;
+
+                if(_finished)
+                {
+                    _scoreTimer -= Time.deltaTime;
+                    if(_scoreTimer < 0)
+                    {
+                        _scoreTimer = 0.3f;
+                        LevelController.Current.ChangeScore(1);
+                    }
+                }
+            }
         }
     }
 
-    // Silindirin hacmini artýrma ya da azaltma fonksiyonu
+    public void ChangeSpeed(float value)
+    {
+        _currentRunningSpeed = value;
+    }
+
+    private void OnTriggerEnter(Collider other)
+    {   
+        if (other.tag == "AddCylinder")
+        {
+            IncrementCylinderVolume(0.1f);
+            Destroy(other.gameObject);
+        }
+        else if(other.tag == "SpawnBridge")
+        {
+            StartSpawningBridge(other.transform.parent.GetComponent<BridgeSpawner>());
+        }
+        else if(other.tag == "StopSpawnBridge")
+        {
+            StopSpawningBridge();
+            if(_finished)
+            {
+                LevelController.Current.FinishGame();
+            }
+        }
+        else if( other.tag == "Finish")
+        {
+            _finished = true;
+            StartSpawningBridge(other.transform.parent.GetComponent<BridgeSpawner>());
+        }
+    }
+    private void OnTriggerStay(Collider other)
+    {
+        if(other.tag == "Trap")
+        {
+            IncrementCylinderVolume(-Time.fixedDeltaTime);
+        }
+    }
     public void IncrementCylinderVolume(float value)
     {
-        if (ridingCylinders.Count == 0) // Eðer hiç silindir yoksa
+        if (ridingCylinders.Count == 0)
         {
             if (value > 0)
             {
-                CreateCylinder(value); // Yeni silindir oluþtur
+                CreateCylinder(value);
             }
             else
             {
-                // game over
+                if(_finished)
+                {
+                    LevelController.Current.FinishGame();
+                }
+                else
+                {
+                    Die();
+                }
             }
         }
         else
         {
-            // Son eklenen silindirin hacmini arttýr/azalt
             ridingCylinders[ridingCylinders.Count - 1].IncrementCylinderVolume(value);
         }
     }
 
-    // Yeni silindir oluþturma fonksiyonu
+    public void Die()
+    {
+        animator.SetBool("dead", true);
+        gameObject.layer = 7;
+        //Kamera karakter ölünce parent'sýz kalýr ve takibi býrakýr
+        Camera.main.transform.SetParent(null);
+        LevelController.Current.GameOver();
+    }
+    
     public void CreateCylinder(float value)
     {
-        // Prefab'dan yeni silindir oluþturuluyor ve Player'ýn altýna ekleniyor
+        
         RidingCylinder createdRidingCylinder = Instantiate(ridingCylinderPrefab, transform).GetComponent<RidingCylinder>();
 
-        // Listeye ekleniyor
+        
         ridingCylinders.Add(createdRidingCylinder);
 
-        // Oluþturulan silindirin hacmi artýrýlýyor
+        
         createdRidingCylinder.IncrementCylinderVolume(value);
     }
-
-    // Var olan silindiri yok etme fonksiyonu
+    
     public void DestroyCylinder(RidingCylinder ridingCylinder)
     {
-        ridingCylinders.Remove(ridingCylinder); // Listeden çýkar
-        Destroy(ridingCylinder.gameObject); // Objesini yok et
+        ridingCylinders.Remove(ridingCylinder);
+        Destroy(ridingCylinder.gameObject);
+    }
+
+    public void StartSpawningBridge(BridgeSpawner spawner)
+    {
+        _bridgeSpawner = spawner;
+        _spawningBridge = true;
+    }
+    public void StopSpawningBridge()
+    {
+        _spawningBridge = false;
     }
 }

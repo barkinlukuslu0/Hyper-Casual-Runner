@@ -5,6 +5,9 @@ TagManager:
   serializedVersion: 3
   tags:
   - AddCylinder
+  - Trap
+  - SpawnBridge
+  - StopSpawnBridge
   layers:
   - Default
   - TransparentFX
@@ -13,8 +16,8 @@ TagManager:
   - Water
   - UI
   - 
-  - 
-  - 
+  - CharacterDead
+  - HiddenColliders
   - 
   - 
   - 
