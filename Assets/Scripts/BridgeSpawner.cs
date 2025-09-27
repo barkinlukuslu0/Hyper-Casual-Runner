@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 public class BridgeSpawner : MonoBehaviour
@@ -8,7 +9,7 @@ public class BridgeSpawner : MonoBehaviour
     void Start()
     {
         Vector3 direction = endReference.transform.position - startReference.transform.position;
-        //HiddenPlatformun uzunluðunu bilmek için direction'un aðýrlýðýný alýyoruz bu þekilde uzunluða ulaþýyoruz
+
         float distance = direction.magnitude;
         direction = direction.normalized;
         hiddenPlatform.transform.forward = direction;

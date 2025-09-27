@@ -8,10 +8,15 @@ public class LevelController : MonoBehaviour
     public bool gameActive = false;
 
     public GameObject startMenu, gameMenu, gameOverMenu, finishMenu;
-    public Text scoreText, finishScoreText, currentLevelText, nextLevelText;
+    public Text scoreText, finishScoreText, currentLevelText, nextLevelText, startingMenuMoneyText, gameOverMenuMoneyText, finishMenuMoneyText;
     public Slider levelProgressBar;
     public float maxDistance;
     public GameObject finishLine;
+
+    public AudioSource gameMusicAudioSource;
+    public AudioClip victoryAudioClip, gameOverAudioClip;
+
+    public DailyReward dailyReward;
 
     int currentLevel;
     int score;
@@ -26,11 +31,15 @@ public class LevelController : MonoBehaviour
         }
         else
         {
+            dailyReward.InitializeDailyReward();
             currentLevelText.text = (currentLevel + 1).ToString();
             nextLevelText.text = (currentLevel + 2).ToString();
-        }
-    }
 
+            UpdateMoneyText();
+        }
+
+        gameMusicAudioSource = Camera.main.GetComponent<AudioSource>();
+    }
     
     void Update()
     {
@@ -69,6 +78,11 @@ public class LevelController : MonoBehaviour
 
     public void GameOver()
     {
+        UpdateMoneyText();
+
+        gameMusicAudioSource.Stop();
+        gameMusicAudioSource.PlayOneShot(gameOverAudioClip);
+
         gameMenu.SetActive(false);
         gameOverMenu.SetActive(true);
 
@@ -77,6 +91,11 @@ public class LevelController : MonoBehaviour
 
     public void FinishGame()
     {
+        GiveMoneyToPlayer(score);
+
+        gameMusicAudioSource.Stop();
+        gameMusicAudioSource.PlayOneShot(victoryAudioClip);
+
         PlayerPrefs.SetInt("currentLevel", currentLevel + 1);
         finishScoreText.text = score.ToString();
         gameMenu.SetActive(false);
@@ -89,5 +108,21 @@ public class LevelController : MonoBehaviour
     {
         score += increment;
         scoreText.text = score.ToString();
+    }
+
+    public void UpdateMoneyText()
+    {
+        int money = PlayerPrefs.GetInt("money");
+        startingMenuMoneyText.text = money.ToString();
+        gameOverMenuMoneyText.text = money.ToString();
+        finishMenuMoneyText.text = money.ToString();
+    }
+
+    public void GiveMoneyToPlayer(int increment)
+    {
+        int money = PlayerPrefs.GetInt("money");
+        money += Mathf.Max(0, increment);
+        PlayerPrefs.SetInt("money", money);
+        UpdateMoneyText();
     }
 }

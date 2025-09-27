@@ -154,8 +154,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a7032cca6695d424d85a4fa55f52f397, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BridgeSpawner
-  startReference: {fileID: 7484597324931672360}
-  endReference: {fileID: 7983422579468012744}
+  startReference: {fileID: 7983422579468012744}
+  endReference: {fileID: 7484597324931672360}
   hiddenPlatform: {fileID: 2703093578904960123}
 --- !u!1 &7484597324931672360
 GameObject:

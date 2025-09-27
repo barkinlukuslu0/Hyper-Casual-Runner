@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Unity.VisualScripting;
 using UnityEngine;
+using UnityEngine.SocialPlatforms.Impl;
 
 public class PlayerController : MonoBehaviour
 {
@@ -23,6 +24,10 @@ public class PlayerController : MonoBehaviour
     private float _scoreTimer = 0;
 
     public Animator animator;
+
+    public AudioSource cyliderAudioSoruce, triggerAudioSource;
+    public AudioClip gatherAudioClip, dropAudioClip, coinAudioClip;
+    private float _dropSoundTimer;
 
     private float _lastTouchedX;
     void Start()
@@ -65,6 +70,7 @@ public class PlayerController : MonoBehaviour
 
         if (_spawningBridge)
         {
+            PlayDropSound();
             _creatingBridgeTimer -= Time.deltaTime;
             if (_creatingBridgeTimer < 0)
             {
@@ -104,6 +110,7 @@ public class PlayerController : MonoBehaviour
     {   
         if (other.tag == "AddCylinder")
         {
+            cyliderAudioSoruce.PlayOneShot(gatherAudioClip, 0.1f);
             IncrementCylinderVolume(0.1f);
             Destroy(other.gameObject);
         }
@@ -124,13 +131,24 @@ public class PlayerController : MonoBehaviour
             _finished = true;
             StartSpawningBridge(other.transform.parent.GetComponent<BridgeSpawner>());
         }
+        else if(other.tag == "Coin")
+        {
+            triggerAudioSource.PlayOneShot(coinAudioClip, 0.1f);
+            other.tag = "Untagged";
+            LevelController.Current.ChangeScore(10);
+            Destroy(other.gameObject);
+        }
     }
     private void OnTriggerStay(Collider other)
     {
-        if(other.tag == "Trap")
+        if(LevelController.Current.gameActive)
         {
-            IncrementCylinderVolume(-Time.fixedDeltaTime);
-        }
+            if (other.tag == "Trap")
+            {
+                PlayDropSound();
+                IncrementCylinderVolume(-Time.fixedDeltaTime);
+            }
+        }    
     }
     public void IncrementCylinderVolume(float value)
     {
@@ -193,5 +211,15 @@ public class PlayerController : MonoBehaviour
     public void StopSpawningBridge()
     {
         _spawningBridge = false;
+    }
+
+    public void PlayDropSound()
+    {
+        _dropSoundTimer -= Time.deltaTime;
+        if (_dropSoundTimer < 0)
+        {
+            _dropSoundTimer = 0.15f;
+            cyliderAudioSoruce.PlayOneShot(dropAudioClip, 0.1f);
+        }
     }
 }
